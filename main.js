@@ -1,14 +1,16 @@
 // Modules to control application life and create native browser window
-const {app, BrowserWindow} = require('electron')
+const {app, BrowserWindow, ipcMain} = require('electron')
 const path = require('path')
 
+let mainWindow;
 function createWindow () {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      // nodeIntegration: true,  //设置为true就可以在这个渲染进程中调用Node.js
     }
   })
 
@@ -16,7 +18,20 @@ function createWindow () {
   mainWindow.loadFile('index.html')
 
   // Open the DevTools.
-  // mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools()
+
+  mainWindow.id = 1;
+
+  const secondWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    }
+  })
+  secondWindow.loadFile('./second/index.html');
+  secondWindow.id = 2;
+  secondWindow.webContents.openDevTools()
 }
 
 // This method will be called when Electron has finished
@@ -41,3 +56,10 @@ app.on('window-all-closed', function () {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+// 接收从渲染进程过来的消息
+ipcMain.on("toMain", (event, args) => {
+  console.log('args: ', args);
+  
+  mainWindow.webContents.send("fromMain", 'from Main');
+});
