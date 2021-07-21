@@ -21,18 +21,19 @@
       <button @click="addNewNews">新增一组新消息</button>
       <button @click="gotoNewNews">有 {{ hasNew }} 条新消息, 定位</button>
       <br /><br />
-      <div>startIdx: {{ startIdx }}</div>
-      <div>endIdx: {{ endIdx }}</div>
+      <div>startId: {{ startId }}, startIdx: {{ startIdx }}</div>
+      <div>endId: {{ endId }}, endIdx: {{ endIdx }}</div>
     </div>
   </div>
 </template>
 
 <script>
-import _ from "lodash";
+// import _ from "lodash";
 
 let wrap;
 let seed = 0;
 let seed_new = 0;
+// window.console.log = ()=>{};
 
 export default {
   name: "list",
@@ -90,8 +91,8 @@ export default {
     console.log("this.renderList: ", this.renderList);
   },
   methods: {
-    handleScroll: _.debounce(function () {
-      // console.log('handleScroll: ', wrap.scrollTop);
+    handleScroll() {
+      console.log('handleScroll: ', wrap.scrollTop);
       if (wrap.scrollTop < 100 && this.init) {
         console.log("added");
         const addList = [
@@ -170,7 +171,7 @@ export default {
           }
         }
       }
-    }, 10),
+    },
     addNewNews() {
       console.log("addNewNews: ");
       const newList = [
@@ -226,7 +227,7 @@ export default {
   overflow: scroll;
   height: 500px;
   border: 1px solid #000;
-  /* padding-top: 200px; */
+  /* padding-top: 1000px; */
   /* overflow-y: scroll; */
   /* scroll-behavior: smooth; */
 }
