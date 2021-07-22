@@ -23,10 +23,10 @@ export default {
       type: Number,
       default: 100,
     },
-    limitInitLength: {
-      type: Number,
-      default: 30,
-    },
+    // limitInitLength: {
+    //   type: Number,
+    //   default: 30,
+    // },
     maxRenderHeight: {
       // 保留多少个 ClientHeight 的高度
       type: Number,
@@ -54,6 +54,7 @@ export default {
     dataSources(newVal, oldVal) {
       console.log('watch dataSources');
       const isAddNews = newVal.length > oldVal.length;
+      console.log('isAddNews: ', isAddNews);
       if (isAddNews) {
         // 拉取历史消息 或 拉取新消息
         this.updateDataSourceByAdd(newVal, oldVal);
@@ -68,7 +69,7 @@ export default {
     installVirtual() {
       this.virtual = new Virtual({
         dataSourceIds: this.getDataSourceIds(this.dataSources),
-        limitInitLength: this.limitInitLength,
+        // limitInitLength: this.limitInitLength,
       });
 
       this.range = this.virtual.getRange();
@@ -80,7 +81,7 @@ export default {
       const newDataSourceIds = this.getDataSourceIds(newVal);
       this.virtual.updateDataSourceIds(newDataSourceIds);
       let needAutoLocate = false;
-      const isAddNewNews = newDataSourceIds[newDataSourceIds.length - 1] !== this.range.endId;
+      const isAddNewNews = newDataSourceIds[newDataSourceIds.length - 1] !== oldVal[oldVal.length - 1].dataKey;
       if (isAddNewNews) {
         if (this.isScrollInBottom()) {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
@@ -96,9 +97,10 @@ export default {
       } else {
         // 拉历史消息
         this.virtual.updateRange(EVENT_TYPE.ADD_OLD_NEWS);
+        this.improveRangeInBottom();
         this.$nextTick(() => {
-          const topOldNewsIdx = oldVal[0].dataKey;
-          const topOldNewsDom = document.getElementById(topOldNewsIdx);
+          const topOldNewsId = oldVal[0].dataKey;
+          const topOldNewsDom = document.getElementById(topOldNewsId);
           topOldNewsDom.scrollIntoView(true);
         });
       }
@@ -115,6 +117,32 @@ export default {
           });
         }
       });
+    },
+    improveRangeInBottom() {
+      console.log('improveRangeInBottom: ');
+      const rootScrollHeight = this.getScrollSize();
+      const rootClientHeight = this.getClientSize();
+      const num = Math.floor(rootScrollHeight / rootClientHeight) + 1;
+      if(num > this.maxRenderHeight) {
+        const lastNews = document.getElementById(this.range.endId);
+        const newsHeight = lastNews.offsetHeight;
+        const newsToDeleteNum = Math.floor((num - this.maxRenderHeight) * (rootClientHeight / newsHeight));
+        this.virtual.updateRange(EVENT_TYPE.IMPROVE_BY_DELETE_BOTTOM, newsToDeleteNum);
+        this.range = this.virtual.getRange();
+      }
+    },
+    improveRangeInTop() {
+      console.log('improveRangeInTop: ');
+      const rootScrollHeight = this.getScrollSize();
+      const rootClientHeight = this.getClientSize();
+      const num = Math.floor(rootScrollHeight / rootClientHeight) + 1;
+      if(num > this.maxRenderHeight) {
+        const firstNews = document.getElementById(this.range.startId);
+        const newsHeight = firstNews.offsetHeight;
+        const newsToDeleteNum = Math.floor((num - this.maxRenderHeight) * (rootClientHeight / newsHeight));
+        this.virtual.updateRange(EVENT_TYPE.IMPROVE_BY_DELETE_TOP, newsToDeleteNum);
+        this.range = this.virtual.getRange();
+      }
     },
     updateDataSourceByDelete(newVal, oldVal) {
       if(!newVal.length) {
@@ -161,16 +189,31 @@ export default {
     },
     handleTopIntersection() {
       console.log("上面相交了");
-      this.$emit("toTop");
+      const scrollToIdFromReset = this.virtual.resetFromImproveByTop();
+      if(scrollToIdFromReset) {
+        this.range = this.virtual.getRange();
+        this.$nextTick(() => {
+          const scrollToDomFromReset = document.getElementById(scrollToIdFromReset);
+          scrollToDomFromReset.scrollIntoView(true);
+        });
+      } else {
+        this.$emit("toTop");
+      }
+      this.improveRangeInBottom();
     },
     handleBottomIntersection() {
       console.log("下面相交了");
-      this.$emit("toBottom");
-      if (this.newNewsToShow) {
-        // 重置新消息状态
-        this.newNewsToShow = 0;
-        this.$emit("updateNewNewsToShow", this.newNewsToShow);
+      if(this.virtual.resetFromImproveByBottom()) {
+        this.range = this.virtual.getRange();
+      } else {
+        this.$emit("toBottom");
+        if (this.newNewsToShow) {
+          // 重置新消息状态
+          this.newNewsToShow = 0;
+          this.$emit("updateNewNewsToShow", this.newNewsToShow);
+        }
       }
+      this.improveRangeInTop();
     },
     isScrollInBottom() {
       const offset = this.getOffset(); // root.scrollTop
@@ -243,9 +286,6 @@ export default {
     const rootStyle = { overflowY: "auto" };
     const topTargetStyle = { height: "10px" };
     const bottomTargetStyle = { height: "1px" };
-    // const padFront = 0;
-    // const padBehind = 0;
-    // const paddingStyle = { padding: `${padFront}px 0px ${padBehind}px` };
 
     return h(
       "div",
@@ -265,11 +305,8 @@ export default {
         h(
           "div",
           {
-            // class: wrapClass,
             role: "group",
             id: "group",
-            // style: wrapperStyle
-            // style: paddingStyle,
           },
           this.getRenderSlots()
         ),
