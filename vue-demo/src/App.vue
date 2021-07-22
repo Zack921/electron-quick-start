@@ -3,15 +3,13 @@
   <!-- <HelloWorld msg="Electron+Vue App From Zack"/> -->
   <div>
     <FirstList v-if="false" />
-    <z-list
-      v-if="true" 
+    <ChatList
       ref="zList"
       class="zList"
       :data-sources="items"
       :data-component="itemComponent"
-      v-on:totop="onScrollToTop"
-      v-on:updateNewNewsToShow="updateNewNewsToShow"
-    />
+      v-on:toTop="onScrollToTop"
+      v-on:updateNewNewsToShow="updateNewNewsToShow" />
     <div>{{ isLoading ? "isLoading..." : "" }}</div>
     <br /><br />
     <button @click="addNewNews">新增一组新消息</button>
@@ -25,6 +23,7 @@
 // import HelloWorld from './components/HelloWorld.vue'
 import FirstList from "./components/List.vue";
 import ShowItem from "./components/ShowItem.vue";
+import ChatList from './components/ChatList';
 
 let seed = 0;
 let seed_new = 0;
@@ -35,6 +34,7 @@ export default {
     // HelloWorld,
     FirstList,
     // ShowItem
+    ChatList,
   },
   data() {
     return {
@@ -76,24 +76,13 @@ export default {
         ];
 
         this.items = addList.concat(this.items);
-        console.log("this.items: ", this.items);
+        // console.log("this.items: ", this.items);
         seed++;
       }, 50);
     },
 
     onScrollToBottom() {
       console.log("at bottom");
-
-      // if (this.isLoading) {
-      //   return
-      // }
-
-      // this.isLoading = true
-
-      // setTimeout(() => {
-      //   this.isLoading = false
-      //   this.items = this.items.concat(getPageData(pageSize, this.items.length))
-      // }, 500);
     },
 
     addNewNews() {
@@ -116,7 +105,7 @@ export default {
         ];
 
         this.items = this.items.concat(newList);
-        console.log("this.items: ", this.items);
+        // console.log("this.items: ", this.items);
 
         seed_new++;
       }, 50);

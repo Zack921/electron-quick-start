@@ -1,8 +1,8 @@
 import { h, toRaw } from "vue";
-import _ from "lodash";
-import Virtual from "./virtual";
+import Virtual, { EVENT_TYPE } from "./virtual";
 
 let root;
+let observer, topTarget, bottomTarget;
 
 export default {
   name: "z-list",
@@ -27,7 +27,6 @@ export default {
   data() {
     return {
       range: null,
-      emitToTopLock: false,
       newNewsToShow: 0,
       firstNewNewsId: '',
     };
@@ -36,33 +35,37 @@ export default {
     this.installVirtual();
   },
   mounted() {
+    root = this.$refs.root;
     if (this.initFromBottom) {
-      root = this.$refs.root;
-      root.scrollTop = 1000;
+      root.scrollTop = 10000;
     }
+    this.initIntersectionObserver();
   },
   watch: {
     dataSources(newVal, oldVal) {
-      this.emitToTopLock = false;
-      this.virtual.updateDataSources(newVal);
+      const newDataSourceIds = this.getDataSourceIds(newVal);
+      this.virtual.updateDataSourceIds(newDataSourceIds);
       let needAutoLocate = false;
-      if (newVal[newVal.length - 1].dataKey !== this.range.endId) {
-        // 新增消息
-        const offset = this.getOffset(); // root.scrollTop
-        const clientSize = this.getClientSize(); // root.clientHeight
-        const scrollSize = this.getScrollSize(); // root.scrollHeight
-        if (offset + clientSize === scrollSize) {
+      const isAddNewNews = newDataSourceIds[newDataSourceIds.length - 1] !== this.range.endId;
+      if (isAddNewNews) {
+        if (this.isScrollInBottom()) {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
           needAutoLocate = true;
         } else {
-          if (!this.firstNewNewsId) this.firstNewNewsId = newVal[oldVal.length].dataKey;
+          if (!this.firstNewNewsId) this.firstNewNewsId = newDataSourceIds[oldVal.length];
 
           this.newNewsToShow += newVal.length - oldVal.length;
           this.$emit("updateNewNewsToShow", this.newNewsToShow);
         }
-        this.virtual.updateRange("addNews");
+        this.virtual.updateRange(EVENT_TYPE.ADD_NEW_NEWS);
       } else {
-        this.virtual.updateRange("up");
+        // 拉历史消息
+        this.virtual.updateRange(EVENT_TYPE.ADD_OLD_NEWS);
+        this.$nextTick(() => {
+          const topOldNewsIdx = oldVal[0].dataKey;
+          const topOldNewsDom = document.getElementById(topOldNewsIdx);
+          topOldNewsDom.scrollIntoView(true);
+        });
       }
 
       this.range = this.virtual.getRange();
@@ -72,7 +75,7 @@ export default {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
           console.log("gun");
           root.scrollTo({
-            top: root.scrollTop + 1000,
+            top: root.scrollTop + 10000,
             behavior: "smooth",
           });
         }
@@ -82,43 +85,58 @@ export default {
   methods: {
     installVirtual() {
       this.virtual = new Virtual({
-        dataSources: this.dataSources,
-        // uniqueIds: this.getUniqueIdFromDataSources()
+        dataSourceIds: this.getDataSourceIds(this.dataSources),
       });
 
-      // sync initial range
       this.range = this.virtual.getRange();
     },
-    onScroll: _.throttle(function() {
-      console.log("onScroll: ");
-
-      const offset = this.getOffset(); // root.scrollTop
-      const clientSize = this.getClientSize(); // root.clientHeight
-      const scrollSize = this.getScrollSize(); // root.scrollHeight
-
-      if (offset + clientSize === scrollSize) {
-        // 如果当前滚动条在最下方，则重置 newNewsToShow
+    getDataSourceIds(dataSources) {
+      return dataSources.map(item => item.dataKey);
+    },
+    initIntersectionObserver() {
+      const options = {
+        root,
+        rootMargin: '0px',
+        threshold: 0.1,
+      };
+          
+      observer = new IntersectionObserver(this.handleIntersection, options);
+  
+      topTarget = document.getElementById('top-target');
+      bottomTarget = document.getElementById('bottom-target');
+  
+      observer.observe(topTarget); // 开始观察
+      observer.observe(bottomTarget); // 开始观察
+    },
+    handleIntersection(events) {
+      console.log('相交了', events);
+      if(events.length === 1) {
+        const event = events[0];
+        const target = event.target;
+        if (target.id === 'top-target' && event.isIntersecting) {
+          return this.handleTopIntersection();
+        }
+        if (target.id === 'bottom-target' && event.isIntersecting) {
+          return this.handleBottomIntersection();
+        }
+      }
+    },
+    handleTopIntersection() {
+      console.log('上面相交了');
+      this.$emit("toTop");
+    },
+    handleBottomIntersection() {
+      console.log('下面相交了');
+      if(this.newNewsToShow) { // 重置新消息状态
         this.newNewsToShow = 0;
         this.$emit("updateNewNewsToShow", this.newNewsToShow);
       }
-
-      this.virtual.handleScroll(offset);
-      this.emitEvent(offset);
-    }, 100),
-    emitEvent(offset) {
-      // this.$emit('scroll', evt, this.virtual.getRange())
-
-      if (
-        this.virtual.isUp() &&
-        !this.emitToTopLock &&
-        offset <= this.topThreshold
-      ) {
-        this.$emit("totop");
-        this.emitToTopLock = true;
-      }
-      //  else if (this.virtual.isDown() && (offset + clientSize + this.bottomThreshold >= scrollSize)) {
-      //   this.$emit('tobottom')
-      // }
+    },
+    isScrollInBottom() {
+      const offset = this.getOffset(); // root.scrollTop
+      const clientSize = this.getClientSize(); // root.clientHeight
+      const scrollSize = this.getScrollSize(); // root.scrollHeight
+      return offset + clientSize === scrollSize;
     },
     locateOnNewNews() {
       if (!this.firstNewNewsId) return;
@@ -174,9 +192,11 @@ export default {
   },
   render() {
     const rootStyle = { overflowY: "auto" };
-    const padFront = 0;
-    const padBehind = 0;
-    const paddingStyle = { padding: `${padFront}px 0px ${padBehind}px` };
+    const topTargetStyle = { height: "10px" };
+    const bottomTargetStyle = { height: "1px" };
+    // const padFront = 0;
+    // const padBehind = 0;
+    // const paddingStyle = { padding: `${padFront}px 0px ${padBehind}px` };
 
     return h(
       "div",
@@ -184,10 +204,17 @@ export default {
         ref: "root",
         id: "root",
         role: "root",
-        onscroll: this.onScroll,
         style: rootStyle,
       },
       [
+        // 顶部 target
+        h(
+          "div",
+          {
+            id: "top-target",
+            style: topTargetStyle,
+          },
+        ),
         // main list
         h(
           "div",
@@ -196,9 +223,17 @@ export default {
             role: "group",
             id: "group",
             // style: wrapperStyle
-            style: paddingStyle,
+            // style: paddingStyle,
           },
           this.getRenderSlots()
+        ),
+        // 尾部 target
+        h(
+          "div",
+          {
+            id: "bottom-target",
+            style: bottomTargetStyle,
+          },
         ),
       ]
     );
