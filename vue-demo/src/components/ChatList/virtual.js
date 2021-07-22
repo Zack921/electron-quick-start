@@ -1,5 +1,4 @@
 // 管理 range
-const limitInitLength = 30;
 
 // const DIRECTION_TYPE = {
 //   UP: 'UP', // scroll up
@@ -9,6 +8,8 @@ const limitInitLength = 30;
 export const EVENT_TYPE = {
   ADD_OLD_NEWS: 'ADD_OLD_NEWS',
   ADD_NEW_NEWS: 'ADD_NEW_NEWS',
+  DELETE_NEWS_FROM_TOP: 'DELETE_NEWS_FROM_TOP',
+  DELETE_NEWS_FROM_BOTTOM: 'DELETE_NEWS_FROM_BOTTOM',
 }
 
 export default class Virtual {
@@ -17,6 +18,7 @@ export default class Virtual {
   }
 
   init(param) {
+    this.limitInitLength = param.limitInitLength;
     // scroll data
     this.offset = 0;
     this.direction = '';
@@ -30,8 +32,8 @@ export default class Virtual {
     const length = this.dataSourceIds.length;
     if(length) {
       this.range.endId = this.dataSourceIds[length - 1];
-      if(length >= limitInitLength) {
-        this.range.startId = this.dataSourceIds[length - limitInitLength];
+      if(length >= this.limitInitLength) {
+        this.range.startId = this.dataSourceIds[length - this.limitInitLength];
       } else {
         this.range.startId = this.dataSourceIds[0];
       }
@@ -46,18 +48,28 @@ export default class Virtual {
     return range;
   }
 
+  resetRange() {
+    this.range = {
+      startId: '',
+      endId: '',
+    };
+  }
+
   updateDataSourceIds(newVal) {
     this.dataSourceIds = newVal;
   }
 
   updateRange(type) {
     switch (type) {
-      case EVENT_TYPE.ADD_OLD_NEWS: {
+      case EVENT_TYPE.ADD_OLD_NEWS:
+      case EVENT_TYPE.DELETE_NEWS_FROM_TOP: {
         this.range.startId = this.dataSourceIds[0];
         break;
       }
-      case EVENT_TYPE.ADD_NEW_NEWS: {
+      case EVENT_TYPE.ADD_NEW_NEWS:
+      case EVENT_TYPE.DELETE_NEWS_FROM_BOTTOM: {
         this.range.endId = this.dataSourceIds[this.dataSourceIds.length - 1];
+        if(!this.range.startId) this.range.startId = this.dataSourceIds[0];
         break;
       }
     }

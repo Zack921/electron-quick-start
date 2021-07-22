@@ -23,12 +23,21 @@ export default {
       type: Number,
       default: 100,
     },
+    limitInitLength: {
+      type: Number,
+      default: 30,
+    },
+    maxRenderHeight: {
+      // 保留多少个 ClientHeight 的高度
+      type: Number,
+      default: 3,
+    },
   },
   data() {
     return {
       range: null,
       newNewsToShow: 0,
-      firstNewNewsId: '',
+      firstNewNewsId: "",
     };
   },
   created() {
@@ -43,6 +52,31 @@ export default {
   },
   watch: {
     dataSources(newVal, oldVal) {
+      console.log('watch dataSources');
+      const isAddNews = newVal.length > oldVal.length;
+      if (isAddNews) {
+        // 拉取历史消息 或 拉取新消息
+        this.updateDataSourceByAdd(newVal, oldVal);
+      } else {
+        // 业务删减 dataSources, 避免列表过大影响性能
+        console.log('updateDataSourceByDelete: ');
+        this.updateDataSourceByDelete(newVal, oldVal);
+      }
+    },
+  },
+  methods: {
+    installVirtual() {
+      this.virtual = new Virtual({
+        dataSourceIds: this.getDataSourceIds(this.dataSources),
+        limitInitLength: this.limitInitLength,
+      });
+
+      this.range = this.virtual.getRange();
+    },
+    getDataSourceIds(dataSources) {
+      return dataSources.map((item) => item.dataKey);
+    },
+    updateDataSourceByAdd(newVal, oldVal) {
       const newDataSourceIds = this.getDataSourceIds(newVal);
       this.virtual.updateDataSourceIds(newDataSourceIds);
       let needAutoLocate = false;
@@ -52,7 +86,8 @@ export default {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
           needAutoLocate = true;
         } else {
-          if (!this.firstNewNewsId) this.firstNewNewsId = newDataSourceIds[oldVal.length];
+          if (!this.firstNewNewsId)
+            this.firstNewNewsId = newDataSourceIds[oldVal.length];
 
           this.newNewsToShow += newVal.length - oldVal.length;
           this.$emit("updateNewNewsToShow", this.newNewsToShow);
@@ -81,53 +116,58 @@ export default {
         }
       });
     },
-  },
-  methods: {
-    installVirtual() {
-      this.virtual = new Virtual({
-        dataSourceIds: this.getDataSourceIds(this.dataSources),
-      });
-
+    updateDataSourceByDelete(newVal, oldVal) {
+      if(!newVal.length) {
+        this.virtual.resetRange();
+      } else {
+        const isDeleteFromTop = newVal[newVal.length - 1].dataKey === oldVal[oldVal.length - 1].dataKey;
+        const newDataSourceIds = this.getDataSourceIds(newVal);
+        this.virtual.updateDataSourceIds(newDataSourceIds);
+        if(isDeleteFromTop) {
+          this.virtual.updateRange(EVENT_TYPE.DELETE_NEWS_FROM_TOP);
+        } else {
+          this.virtual.updateRange(EVENT_TYPE.DELETE_NEWS_FROM_BOTTOM);
+        }
+      }
       this.range = this.virtual.getRange();
-    },
-    getDataSourceIds(dataSources) {
-      return dataSources.map(item => item.dataKey);
     },
     initIntersectionObserver() {
       const options = {
         root,
-        rootMargin: '0px',
+        rootMargin: "0px",
         threshold: 0.1,
       };
-          
+
       observer = new IntersectionObserver(this.handleIntersection, options);
-  
-      topTarget = document.getElementById('top-target');
-      bottomTarget = document.getElementById('bottom-target');
-  
+
+      topTarget = document.getElementById("top-target");
+      bottomTarget = document.getElementById("bottom-target");
+
       observer.observe(topTarget); // 开始观察
       observer.observe(bottomTarget); // 开始观察
     },
     handleIntersection(events) {
-      console.log('相交了', events);
-      if(events.length === 1) {
+      console.log("相交了", events);
+      if (events.length === 1) {
         const event = events[0];
         const target = event.target;
-        if (target.id === 'top-target' && event.isIntersecting) {
+        if (target.id === "top-target" && event.isIntersecting) {
           return this.handleTopIntersection();
         }
-        if (target.id === 'bottom-target' && event.isIntersecting) {
+        if (target.id === "bottom-target" && event.isIntersecting) {
           return this.handleBottomIntersection();
         }
       }
     },
     handleTopIntersection() {
-      console.log('上面相交了');
+      console.log("上面相交了");
       this.$emit("toTop");
     },
     handleBottomIntersection() {
-      console.log('下面相交了');
-      if(this.newNewsToShow) { // 重置新消息状态
+      console.log("下面相交了");
+      this.$emit("toBottom");
+      if (this.newNewsToShow) {
+        // 重置新消息状态
         this.newNewsToShow = 0;
         this.$emit("updateNewNewsToShow", this.newNewsToShow);
       }
@@ -142,6 +182,12 @@ export default {
       if (!this.firstNewNewsId) return;
       document.getElementById(this.firstNewNewsId).scrollIntoView(true);
     },
+    locateOnNews(id) {
+      if (!id) return;
+      document.getElementById(id).scrollIntoView({
+        behavior: 'smooth',
+      });
+    },
     // return current scroll offset
     getOffset() {
       return root ? Math.ceil(root.scrollTop) : 0;
@@ -155,32 +201,35 @@ export default {
       return root ? Math.ceil(root.scrollHeight) : 0;
     },
     getIdxFromId(dataSourceId) {
+      if(!this.dataSources.length) return 0;
       return this.dataSources.findIndex(
         (item) => item.dataKey === dataSourceId
       );
     },
     getRenderSlots() {
       const slots = [];
+      const { dataSources, dataComponent } = this;
+      if(!dataSources.length) return slots;
+
       const start = this.getIdxFromId(this.range.startId);
       const end = this.getIdxFromId(this.range.endId);
-      const { dataSources, dataComponent } = this;
       const rawDataComponent = toRaw(dataComponent);
       for (let index = start; index <= end; index++) {
         const dataSource = dataSources[index];
         if (dataSource) {
-          const uniqueKey = dataSource["dataKey"];
-          if (typeof uniqueKey === "string" || typeof uniqueKey === "number") {
+          const dataKey = dataSource["dataKey"];
+          if (typeof dataKey === "string" || typeof dataKey === "number") {
             slots.push(
               h(rawDataComponent, {
                 itemData: dataSource,
-                id: uniqueKey,
+                id: dataKey,
                 // uniqueKey: uniqueKey,
-                key: uniqueKey,
+                key: dataKey,
               })
             );
           } else {
             console.warn(
-              `Cannot get the data-key ${uniqueKey} from data-sources.`
+              `Cannot get the data-key ${dataKey} from data-sources.`
             );
           }
         } else {
@@ -208,13 +257,10 @@ export default {
       },
       [
         // 顶部 target
-        h(
-          "div",
-          {
-            id: "top-target",
-            style: topTargetStyle,
-          },
-        ),
+        h("div", {
+          id: "top-target",
+          style: topTargetStyle,
+        }),
         // main list
         h(
           "div",
@@ -228,13 +274,10 @@ export default {
           this.getRenderSlots()
         ),
         // 尾部 target
-        h(
-          "div",
-          {
-            id: "bottom-target",
-            style: bottomTargetStyle,
-          },
-        ),
+        h("div", {
+          id: "bottom-target",
+          style: bottomTargetStyle,
+        }),
       ]
     );
   },

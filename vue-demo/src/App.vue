@@ -9,12 +9,19 @@
       :data-sources="items"
       :data-component="itemComponent"
       v-on:toTop="onScrollToTop"
+      v-on:toBottom="onScrollToBottom"
       v-on:updateNewNewsToShow="updateNewNewsToShow" />
-    <div>{{ isLoading ? "isLoading..." : "" }}</div>
-    <br /><br />
+    <br />
+    <div>isLoading...: {{ isLoading }}</div>
+    <br />
     <button @click="addNewNews">新增一组新消息</button>
     <button @click="gotoNewNews">有 {{ hasNew }} 条新消息, 定位</button>
     <br /><br />
+    <button @click="deleteNewsFromTop">从上方删除 {{deleteLength}} 条消息</button>
+    <button @click="deleteNewsFromBottom">从下方删除 {{deleteLength}} 条消息</button>
+    <br /><br />
+    id: <input type="text" v-model="gotoNewsId" style="width: 100px; marginRight: 10px">
+    <button @click="gotoNews">跳转到某条消息</button>
     <!-- <ShowItem /> -->
   </div>
 </template>
@@ -53,6 +60,8 @@ export default {
       ],
       itemComponent: ShowItem,
       hasNew: 0,
+      gotoNewsId: '',
+      deleteLength: 10,
     };
   },
   methods: {
@@ -76,7 +85,6 @@ export default {
         ];
 
         this.items = addList.concat(this.items);
-        // console.log("this.items: ", this.items);
         seed++;
       }, 50);
     },
@@ -105,18 +113,24 @@ export default {
         ];
 
         this.items = this.items.concat(newList);
-        // console.log("this.items: ", this.items);
-
         seed_new++;
       }, 50);
     },
     updateNewNewsToShow(length) {
       this.hasNew = length;
-      console.log(`还有 ${length} 条新消息需要展示`);
     },
     gotoNewNews() {
       this.$refs.zList.locateOnNewNews();
-    }
+    },
+    deleteNewsFromTop() {
+      this.items = this.items.slice(this.deleteLength);
+    },
+    deleteNewsFromBottom() {
+      this.items = this.items.slice(0, 0 - this.deleteLength);
+    },
+    gotoNews() {
+      this.$refs.zList.locateOnNews(this.gotoNewsId);
+    },
   },
 };
 </script>
@@ -125,6 +139,6 @@ export default {
 .zList {
   height: 500px;
   border: 1px solid #000;
-  margin-top: 100px;
+  margin-top: 50px;
 }
 </style>
