@@ -1,4 +1,9 @@
 import { createApp } from 'vue'
 import App from './App.vue'
+import ZList from './components/ZList';
 
-createApp(App).mount('#app')
+const app = createApp(App);
+
+app.component('z-list', ZList);
+
+app.mount('#app');

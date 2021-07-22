@@ -28,7 +28,7 @@
 </template>
 
 <script>
-// import _ from "lodash";
+import _ from "lodash";
 
 let wrap;
 let seed = 0;
@@ -91,10 +91,28 @@ export default {
     console.log("this.renderList: ", this.renderList);
   },
   methods: {
-    handleScroll() {
+    handleScroll: _.throttle(function() {
       console.log('handleScroll: ', wrap.scrollTop);
-      if (wrap.scrollTop < 100 && this.init) {
+      if (wrap.scrollTop < 100 && this.init && !this.isLoading) {
         console.log("added");
+
+        // this.isLoading = true;
+        // setTimeout(() => {
+        //   this.isLoading = false;
+        //   const addList = [
+        //     { dataKey: `F-${seed}` },
+        //     { dataKey: `E-${seed}` },
+        //     { dataKey: `D-${seed}` },
+        //     { dataKey: `C-${seed}` },
+        //     { dataKey: `B-${seed}` },
+        //     { dataKey: `A-${seed}` },
+        //   ];
+
+        //   this.list = addList.concat(this.list);
+        //   this.startId = addList[0].id;
+        //   seed++;
+        // }, 500);
+
         const addList = [
           { id: `F-${seed}` },
           { id: `E-${seed}` },
@@ -171,7 +189,7 @@ export default {
           }
         }
       }
-    },
+    }, 100),
     addNewNews() {
       console.log("addNewNews: ");
       const newList = [
