@@ -1,9 +1,4 @@
-// 管理 range
-
-// const DIRECTION_TYPE = {
-//   UP: 'UP', // scroll up
-//   DOWN: 'DOWN' // scroll down
-// }
+// 管理渲染区域 render-range
 
 export const EVENT_TYPE = {
   ADD_OLD_NEWS: 'ADD_OLD_NEWS',
@@ -19,12 +14,7 @@ export default class Virtual {
   constructor(param) {
     this.init(param);
   }
-
   init(param) {
-    // this.limitInitLength = param.limitInitLength;
-    // scroll data
-    this.offset = 0;
-    this.direction = '';
     // range data
     this.range = {
       startId: '',
@@ -38,39 +28,38 @@ export default class Virtual {
     this.dataSourceIds = param.dataSourceIds;
     const length = this.dataSourceIds.length;
     if(length) {
+      this.range.startId = this.dataSourceIds[0];
       this.range.endId = this.dataSourceIds[length - 1];
-      // if(length >= this.limitInitLength) {
-      //   this.range.startId = this.dataSourceIds[length - this.limitInitLength];
-      // } else {
-        this.range.startId = this.dataSourceIds[0];
-      // }
     }
   }
-
-  // return current render range
   getRange() {
     const range = Object.create(null);
     range.startId = this.range.startId;
     range.endId = this.range.endId;
     return range;
   }
-
   resetRange() {
     this.range = {
       startId: '',
       endId: '',
+      // 以下参数用于动态优化渲染区域
+      deleteFromTop: [],
+      deleteFromBottom: [],
+      deleteNumFromTop: 0,
+      deleteNumFromBottom: 0,
     };
   }
-
   updateDataSourceIds(newVal) {
     this.dataSourceIds = newVal;
   }
-
+  // deleteNum: 需要删减的消息数
   updateRange(type, deleteNum) {
     switch (type) {
       case EVENT_TYPE.ADD_OLD_NEWS:
       case EVENT_TYPE.DELETE_NEWS_FROM_TOP: {
         this.range.startId = this.dataSourceIds[0];
+        this.range.deleteFromTop= [];
+        this.range.deleteNumFromTop= 0;
         break;
       }
       case EVENT_TYPE.ADD_NEW_NEWS:
@@ -78,7 +67,7 @@ export default class Virtual {
         this.range.endId = this.dataSourceIds[this.dataSourceIds.length - 1];
         this.range.deleteFromBottom = [];
         this.range.deleteNumFromBottom = 0;
-        if(!this.range.startId) this.range.startId = this.dataSourceIds[0];
+        if(!this.range.startId) this.range.startId = this.dataSourceIds[0]; // 从清空状态添加消息, 此时 startId 为空
         break;
       }
       case EVENT_TYPE.IMPROVE_BY_DELETE_BOTTOM: {
@@ -92,7 +81,6 @@ export default class Virtual {
         break;
       }
       case EVENT_TYPE.IMPROVE_BY_DELETE_TOP: {
-        console.log('IMPROVE_BY_DELETE_TOP: ');
         this.range.deleteFromTop.push({
           id: this.range.startId,
           deleteNum,
@@ -100,12 +88,10 @@ export default class Virtual {
         this.range.deleteNumFromTop += deleteNum;
         const deleteId = this.dataSourceIds[this.range.deleteNumFromTop];
         this.range.startId = deleteId;
-        console.log('this.range: ', this.range);
         break;
       }
     }
   }
-
   resetFromImproveByBottom() {
     console.log('resetFromImproveByBottom: ');
     if(!this.range.deleteFromBottom.length) return false;
@@ -114,7 +100,6 @@ export default class Virtual {
     this.range.deleteNumFromBottom -= deleteIdToReset.deleteNum;
     return true;
   }
-
   resetFromImproveByTop() {
     console.log('resetFromImproveByTop: ');
     if(!this.range.deleteFromTop.length) return false;
@@ -124,17 +109,4 @@ export default class Virtual {
     this.range.deleteNumFromTop -= deleteIdToReset.deleteNum;
     return scrollToId;
   }
-
-  // isUp () {
-  //   return this.direction === DIRECTION_TYPE.UP;
-  // }
-
-  // isDown () {
-  //   return this.direction === DIRECTION_TYPE.DOWN;
-  // }
-
-  // handleScroll(offset) {
-  //   this.direction = offset < this.offset ? DIRECTION_TYPE.UP : DIRECTION_TYPE.DOWN;
-  //   this.offset = offset;
-  // }
 }

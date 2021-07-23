@@ -4,6 +4,13 @@ import Virtual, { EVENT_TYPE } from "./virtual";
 let root;
 let observer, topTarget, bottomTarget;
 
+const findLastIndex = (list, cb) => {
+  for(let i = list.length - 1; i >= 0; i--){
+    if(cb(list[i])) return i;
+  }
+  return -1;
+}
+
 export default {
   name: "z-list",
   props: {
@@ -19,14 +26,6 @@ export default {
       type: Boolean,
       default: true,
     },
-    topThreshold: {
-      type: Number,
-      default: 100,
-    },
-    // limitInitLength: {
-    //   type: Number,
-    //   default: 30,
-    // },
     maxRenderHeight: {
       // 保留多少个 ClientHeight 的高度
       type: Number,
@@ -52,9 +51,7 @@ export default {
   },
   watch: {
     dataSources(newVal, oldVal) {
-      console.log('watch dataSources');
       const isAddNews = newVal.length > oldVal.length;
-      console.log('isAddNews: ', isAddNews);
       if (isAddNews) {
         // 拉取历史消息 或 拉取新消息
         this.updateDataSourceByAdd(newVal, oldVal);
@@ -69,7 +66,6 @@ export default {
     installVirtual() {
       this.virtual = new Virtual({
         dataSourceIds: this.getDataSourceIds(this.dataSources),
-        // limitInitLength: this.limitInitLength,
       });
 
       this.range = this.virtual.getRange();
@@ -81,7 +77,8 @@ export default {
       const newDataSourceIds = this.getDataSourceIds(newVal);
       this.virtual.updateDataSourceIds(newDataSourceIds);
       let needAutoLocate = false;
-      const isAddNewNews = newDataSourceIds[newDataSourceIds.length - 1] !== oldVal[oldVal.length - 1].dataKey;
+      const isAddNewNews = !oldVal.length // 因为空列表不允许拉历史消息，所以只可能是拉新消息
+        || newDataSourceIds[newDataSourceIds.length - 1] !== oldVal[oldVal.length - 1].dataKey;
       if (isAddNewNews) {
         if (this.isScrollInBottom()) {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
@@ -95,14 +92,18 @@ export default {
         }
         this.virtual.updateRange(EVENT_TYPE.ADD_NEW_NEWS);
       } else {
-        // 拉历史消息
-        this.virtual.updateRange(EVENT_TYPE.ADD_OLD_NEWS);
-        this.improveRangeInBottom();
-        this.$nextTick(() => {
-          const topOldNewsId = oldVal[0].dataKey;
-          const topOldNewsDom = document.getElementById(topOldNewsId);
-          topOldNewsDom.scrollIntoView(true);
-        });
+        if(!newVal.length) { // 如果是清空消息后触发的事件，就不拉取了
+          this.virtual.resetRange();
+        } else {
+          // 拉历史消息
+          this.virtual.updateRange(EVENT_TYPE.ADD_OLD_NEWS);
+          this.improveRangeInBottom();
+          this.$nextTick(() => {
+            const topOldNewsId = oldVal[0].dataKey;
+            const topOldNewsDom = document.getElementById(topOldNewsId);
+            topOldNewsDom.scrollIntoView(true);
+          });
+        }
       }
 
       this.range = this.virtual.getRange();
@@ -110,7 +111,7 @@ export default {
       this.$nextTick(() => {
         if (needAutoLocate) {
           // 如果当前滚动条在最下方，则自动滚动到最新一条消息
-          console.log("gun");
+          console.log("自动滚动到最新一条消息");
           root.scrollTo({
             top: root.scrollTop + 10000,
             behavior: "smooth",
@@ -197,7 +198,7 @@ export default {
           scrollToDomFromReset.scrollIntoView(true);
         });
       } else {
-        this.$emit("toTop");
+        if(this.dataSources.length) this.$emit("toTop"); // 当前列表不为空，才拉历史消息
       }
       this.improveRangeInBottom();
     },
@@ -231,23 +232,24 @@ export default {
         behavior: 'smooth',
       });
     },
-    // return current scroll offset
     getOffset() {
       return root ? Math.ceil(root.scrollTop) : 0;
     },
-    // return client viewport size
     getClientSize() {
       return root ? Math.ceil(root.clientHeight) : 0;
     },
-    // return all scroll size
     getScrollSize() {
       return root ? Math.ceil(root.scrollHeight) : 0;
     },
-    getIdxFromId(dataSourceId) {
+    getIdxFromId(dataSourceId, isLast) {
       if(!this.dataSources.length) return 0;
-      return this.dataSources.findIndex(
-        (item) => item.dataKey === dataSourceId
-      );
+      if(!isLast) {
+        return this.dataSources.findIndex(
+          (item) => item.dataKey === dataSourceId
+        );
+      } else {
+        return findLastIndex(this.dataSources, (item) => item.dataKey === dataSourceId);
+      }
     },
     getRenderSlots() {
       const slots = [];
@@ -255,7 +257,7 @@ export default {
       if(!dataSources.length) return slots;
 
       const start = this.getIdxFromId(this.range.startId);
-      const end = this.getIdxFromId(this.range.endId);
+      const end = this.getIdxFromId(this.range.endId, true);
       const rawDataComponent = toRaw(dataComponent);
       for (let index = start; index <= end; index++) {
         const dataSource = dataSources[index];
@@ -266,7 +268,6 @@ export default {
               h(rawDataComponent, {
                 itemData: dataSource,
                 id: dataKey,
-                // uniqueKey: uniqueKey,
                 key: dataKey,
               })
             );
