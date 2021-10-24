@@ -2,7 +2,8 @@ var Application = require('spectron').Application
 const path = require('path');
 var assert = require('assert')
 
-var appPath = path.join(__dirname, '../../vue3/dist_electron/win-unpacked/vue3.exe');
+// var appPath = path.join(__dirname, '../../vue3/dist_electron/win-unpacked/vue3.exe');
+var appPath = path.join(__dirname, '../../vue3/dist_electron/mac/vue3.app/Contents/MacOS/vue3');
 console.log('appPath: ', appPath);
 
 var app = new Application({
@@ -12,8 +13,8 @@ var app = new Application({
 const verifyWindowIsVisibleWithTitle = async (app) => {
   await app.start()
   try {
-    let clippings = await app.client.$('#title');
-    console.log('clippings: ', clippings);
+    // let clippings = await app.client.$('#title');
+    // console.log('clippings: ', clippings);
 
     // Check if the window is visible
     const isVisible = await app.browserWindow.isVisible()
