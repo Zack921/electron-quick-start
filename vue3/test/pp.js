@@ -3,7 +3,9 @@ const electron = require('electron');
 const puppeteer = require('puppeteer-core');
 
 const path = require('path');
-const appPath = path.join(__dirname, '../../vue3/dist_electron/mac/vue3.app/Contents/MacOS/vue3');
+// const appPath = path.join(__dirname, '../../vue3/dist_electron/mac/vue3.app/Contents/MacOS/vue3');
+var appPath = path.join(__dirname, '../../vue3/dist_electron/win-unpacked/vue3.exe');
+// const appPath = path.join(__dirname, '../../vue3/dist_electron/bundled/background.js');
 
 const run = async () => {
   spawn(electron, [appPath, '--remote-debugging-port=9200'], {
@@ -32,9 +34,9 @@ run()
     setTimeout(async () => {
       const [page] = await app.pages();
       console.log(page);
-      await page.waitForSelector('body'); //    选中dom元素
-      const text = await page.$eval('body', (element) => element.innerText);
-      console.log('text:', text);
+      // await page.waitForSelector('body'); //    选中dom元素
+      // const text = await page.$eval('body', (element) => element.innerText);
+      // console.log('text:', text);
     }, 3000);
   })
   .catch((err) => {

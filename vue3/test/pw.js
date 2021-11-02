@@ -3,8 +3,10 @@ const path = require('path');
 
 (async () => {
   // Launch Electron app.
-  var appPath2 = path.join(__dirname, '../../vue3/dist_electron/mac/vue3.app/Contents/MacOS/vue3');
-  const electronApp = await electron.launch({ args: [appPath2] });
+  // const appPath2 = path.join(__dirname, '../../vue3/dist_electron/bundled/background.js');
+  var appPath2 = path.join(__dirname, '../../vue3/dist_electron/win-unpacked/vue3.exe');
+  // var appPath2 = path.join(__dirname, '../../vue3/dist_electron/mac/vue3.app/Contents/MacOS/vue3');
+  const electronApp = await electron.launch({ executablePath: appPath2 });
 
   // Evaluation expression in the Electron context.
   const appPath = await electronApp.evaluate(async ({ app }) => {
