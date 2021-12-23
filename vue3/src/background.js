@@ -1,40 +1,69 @@
 'use strict'
 
-import { app, protocol, BrowserWindow } from 'electron'
+import { app, protocol, BrowserWindow, ipcMain } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS3_DEVTOOLS } from 'electron-devtools-installer'
 const isDevelopment = process.env.NODE_ENV !== 'production'
+const path = require('path')
 
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { secure: true, standard: true } }
 ])
 
+let mainWindow;
+
+const preloadPath = path.join(__dirname, '/preload.js');
+console.log('preloadPath: ', preloadPath);
+
 async function createWindow() {
   // Create the browser window.
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      
+      preload: preloadPath,
       // Use pluginOptions.nodeIntegration, leave this alone
       // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
       // nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
-      nodeIntegration: true,
-      contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION
+      nodeIntegration: false,
+      contextIsolation: true,
     }
   })
 
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
-    await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
+    await mainWindow.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
     // if (!process.env.IS_TEST) win.webContents.openDevTools()
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html')
+    mainWindow.loadURL('app://./index.html')
   }
 }
+
+async function createSecondWindow() {
+  // Create the browser window.
+  const win = new BrowserWindow({
+    width: 800,
+    height: 600,
+    webPreferences: {
+      // preload: preloadPath,
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  })
+  win.loadURL('https://www.baidu.com');
+}
+
+// 接收从渲染进程过来的消息
+ipcMain.on("toMain", (event, args) => {
+  console.log('args: ', args);
+  if(args === 'new page') {
+    createSecondWindow();
+    mainWindow.webContents.send("fromMain", 'start new page');
+  }
+});
 
 // Quit when all windows are closed.
 app.on('window-all-closed', () => {
