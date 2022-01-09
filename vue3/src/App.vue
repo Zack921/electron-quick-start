@@ -7,11 +7,24 @@
 
 <script>
 import HelloWorld from "./components/HelloWorld.vue";
+import { getLCP, getFID, getCLS } from "web-vitals";
 
 export default {
   name: "App",
   components: {
     HelloWorld,
+  },
+  created() {
+    console.log("created", Date.now());
+    getCLS(console.log);
+    getFID(console.log);
+    getLCP(console.log);
+  },
+  mounted() {
+    console.log("mounted", Date.now());
+    getCLS(console.log);
+    getFID(console.log);
+    getLCP(console.log);
   },
 };
 </script>
