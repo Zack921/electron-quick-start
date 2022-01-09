@@ -18,9 +18,12 @@ const path = require('path');
     await app.client.switchWindow('baidu.com');
     title = await app.client.getTitle();
     console.log(title);
+    // await app.client.switchWindow('app://./index.html');
+    // title = await app.client.getTitle();
+    // console.log(title);
   } catch (error) {
     console.error('Test failed', error.message);
   }
-  await app.stop();
+  // await app.stop();
 })();
 
